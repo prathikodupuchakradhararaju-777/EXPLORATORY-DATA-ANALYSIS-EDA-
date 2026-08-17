@@ -76,6 +76,7 @@ def init_db() -> None:
         init_users_db()
         init_preventive_db()
         seed_initial_data_if_empty()
+        init_demo_db()
     except Exception as e:
         print(f"Error initializing SQLite database: {e}")
         raise e
@@ -191,7 +192,391 @@ def seed_initial_data_if_empty() -> None:
         print(f"Error seeding sample work orders: {e}")
 
 
-def insert_work_order(data: Dict[str, Any]) -> bool:
+def init_demo_db() -> None:
+    """
+    Creates and seeds the 'work_orders_demo' table with exactly 20 demonstration work orders for Module 4.
+    The original 'work_orders' table remains untouched.
+    """
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS work_orders_demo (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    work_order_id TEXT UNIQUE NOT NULL,
+                    machine_id TEXT NOT NULL,
+                    machine_type TEXT,
+                    failure_prediction TEXT,
+                    failure_type TEXT,
+                    severity TEXT,
+                    maintenance_action TEXT,
+                    assigned_to TEXT,
+                    status TEXT DEFAULT 'Pending',
+                    priority TEXT,
+                    created_at TEXT,
+                    due_date TEXT,
+                    completed_at TEXT,
+                    ai_summary TEXT
+                );
+            """)
+            
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_wod_status ON work_orders_demo(status);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_wod_priority ON work_orders_demo(priority);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_wod_severity ON work_orders_demo(severity);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_wod_created_at ON work_orders_demo(created_at);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_wod_machine_id ON work_orders_demo(machine_id);")
+
+            cursor.execute("SELECT COUNT(*) FROM work_orders_demo")
+            count = cursor.fetchone()[0]
+            if count == 0:
+                today_str = datetime.now().strftime("%Y-%m-%d")
+                due_in_1 = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+                due_in_2 = (datetime.now() + timedelta(days=2)).strftime("%Y-%m-%d")
+                due_in_3 = (datetime.now() + timedelta(days=3)).strftime("%Y-%m-%d")
+                overdue_1 = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+                overdue_2 = (datetime.now() - timedelta(days=2)).strftime("%Y-%m-%d")
+                overdue_3 = (datetime.now() - timedelta(days=3)).strftime("%Y-%m-%d")
+
+                demo_samples = [
+                    {
+                        "work_order_id": "WO-20260817-001",
+                        "machine_id": "M14860",
+                        "machine_type": "M",
+                        "failure_prediction": "PWF",
+                        "failure_type": "PWF",
+                        "severity": "Critical",
+                        "maintenance_action": "Emergency Power Supply Unit replacement",
+                        "assigned_to": "Sarah Connor",
+                        "status": "In Progress",
+                        "priority": "Critical",
+                        "created_at": "2026-08-10 09:15:00",
+                        "due_date": today_str,
+                        "completed_at": None,
+                        "ai_summary": "High risk of power failure detected due to high voltage fluctuation."
+                    },
+                    {
+                        "work_order_id": "WO-20260817-002",
+                        "machine_id": "L47181",
+                        "machine_type": "L",
+                        "failure_prediction": "TWF",
+                        "failure_type": "TWF",
+                        "severity": "Medium",
+                        "maintenance_action": "Tool replacement and alignment",
+                        "assigned_to": "John Doe",
+                        "status": "Pending",
+                        "priority": "Medium",
+                        "created_at": "2026-08-11 11:30:00",
+                        "due_date": due_in_1,
+                        "completed_at": None,
+                        "ai_summary": "Tool wear failure predicted based on spindle speed degradation."
+                    },
+                    {
+                        "work_order_id": "WO-20260817-003",
+                        "machine_id": "H29384",
+                        "machine_type": "H",
+                        "failure_prediction": "HDF",
+                        "failure_type": "HDF",
+                        "severity": "Critical",
+                        "maintenance_action": "Coolant system overhaul & thermal check",
+                        "assigned_to": "David Smith",
+                        "status": "Pending",
+                        "priority": "Critical",
+                        "created_at": "2026-08-12 14:20:00",
+                        "due_date": overdue_2,
+                        "completed_at": None,
+                        "ai_summary": "Heat dissipation failure alert. Operating temp exceeded limit."
+                    },
+                    {
+                        "work_order_id": "WO-20260817-004",
+                        "machine_id": "M15920",
+                        "machine_type": "M",
+                        "failure_prediction": "OSF",
+                        "failure_type": "OSF",
+                        "severity": "High",
+                        "maintenance_action": "Mechanical strain torque adjustment",
+                        "assigned_to": "Michael Scott",
+                        "status": "Completed",
+                        "priority": "High",
+                        "created_at": "2026-08-08 10:00:00",
+                        "due_date": "2026-08-10",
+                        "completed_at": "2026-08-09 15:45:00",
+                        "ai_summary": "Mechanical overstrain limit reached during high RPM operations."
+                    },
+                    {
+                        "work_order_id": "WO-20260817-005",
+                        "machine_id": "L38291",
+                        "machine_type": "L",
+                        "failure_prediction": "RNF",
+                        "failure_type": "RNF",
+                        "severity": "Low",
+                        "maintenance_action": "Diagnostic sensor check & calibration",
+                        "assigned_to": "Unassigned",
+                        "status": "Pending",
+                        "priority": "Low",
+                        "created_at": "2026-08-13 08:45:00",
+                        "due_date": due_in_3,
+                        "completed_at": None,
+                        "ai_summary": "Random minor anomaly flagged in vibration sensors."
+                    },
+                    {
+                        "work_order_id": "WO-20260817-006",
+                        "machine_id": "H48201",
+                        "machine_type": "H",
+                        "failure_prediction": "PWF",
+                        "failure_type": "PWF",
+                        "severity": "Critical",
+                        "maintenance_action": "High-voltage line inspection and fuse box servicing",
+                        "assigned_to": "Sarah Connor",
+                        "status": "In Progress",
+                        "priority": "Critical",
+                        "created_at": "2026-08-14 13:10:00",
+                        "due_date": today_str,
+                        "completed_at": None,
+                        "ai_summary": "PWF risk detected. Electrical grounding issue flagged."
+                    },
+                    {
+                        "work_order_id": "WO-20260817-007",
+                        "machine_id": "M20491",
+                        "machine_type": "M",
+                        "failure_prediction": "TWF",
+                        "failure_type": "TWF",
+                        "severity": "High",
+                        "maintenance_action": "CNC cutting head replacement",
+                        "assigned_to": "John Doe",
+                        "status": "Completed",
+                        "priority": "High",
+                        "created_at": "2026-08-05 16:30:00",
+                        "due_date": "2026-08-07",
+                        "completed_at": "2026-08-07 11:20:00",
+                        "ai_summary": "Tool wear failure imminent. Recommended immediate blade swap."
+                    },
+                    {
+                        "work_order_id": "WO-20260817-008",
+                        "machine_id": "L10293",
+                        "machine_type": "L",
+                        "failure_prediction": "HDF",
+                        "failure_type": "HDF",
+                        "severity": "High",
+                        "maintenance_action": "Radiator flush & thermal sensor replacement",
+                        "assigned_to": "David Smith",
+                        "status": "In Progress",
+                        "priority": "High",
+                        "created_at": "2026-08-15 10:15:00",
+                        "due_date": due_in_2,
+                        "completed_at": None,
+                        "ai_summary": "Heat dissipation failure. Operating temperature spiking above 95C."
+                    },
+                    {
+                        "work_order_id": "WO-20260817-009",
+                        "machine_id": "H58201",
+                        "machine_type": "H",
+                        "failure_prediction": "OSF",
+                        "failure_type": "OSF",
+                        "severity": "Medium",
+                        "maintenance_action": "Bearing re-greasing and shaft alignment",
+                        "assigned_to": "Michael Scott",
+                        "status": "Completed",
+                        "priority": "Medium",
+                        "created_at": "2026-08-06 12:00:00",
+                        "due_date": "2026-08-08",
+                        "completed_at": "2026-08-08 09:15:00",
+                        "ai_summary": "Overstrain warning resolved following bearing re-alignment."
+                    },
+                    {
+                        "work_order_id": "WO-20260817-010",
+                        "machine_id": "M39201",
+                        "machine_type": "M",
+                        "failure_prediction": "None",
+                        "failure_type": "None",
+                        "severity": "Low",
+                        "maintenance_action": "Routine quarterly preventive inspection",
+                        "assigned_to": "John Doe",
+                        "status": "Completed",
+                        "priority": "Low",
+                        "created_at": "2026-08-01 09:00:00",
+                        "due_date": "2026-08-03",
+                        "completed_at": "2026-08-02 14:00:00",
+                        "ai_summary": "Regular maintenance inspection completed. No issues found."
+                    },
+                    {
+                        "work_order_id": "WO-20260817-011",
+                        "machine_id": "L58291",
+                        "machine_type": "L",
+                        "failure_prediction": "PWF",
+                        "failure_type": "PWF",
+                        "severity": "Critical",
+                        "maintenance_action": "Transformer coil replacement",
+                        "assigned_to": "Sarah Connor",
+                        "status": "Pending",
+                        "priority": "Critical",
+                        "created_at": "2026-08-16 07:30:00",
+                        "due_date": due_in_3,
+                        "completed_at": None,
+                        "ai_summary": "Critical power failure prediction. Voltage drop exceeding safety threshold."
+                    },
+                    {
+                        "work_order_id": "WO-20260817-012",
+                        "machine_id": "H10294",
+                        "machine_type": "H",
+                        "failure_prediction": "TWF",
+                        "failure_type": "TWF",
+                        "severity": "Medium",
+                        "maintenance_action": "Spindle re-calibration",
+                        "assigned_to": "David Smith",
+                        "status": "In Progress",
+                        "priority": "Medium",
+                        "created_at": "2026-08-15 15:45:00",
+                        "due_date": due_in_2,
+                        "completed_at": None,
+                        "ai_summary": "Tool wear flagged on high-duty spindle axis."
+                    },
+                    {
+                        "work_order_id": "WO-20260817-013",
+                        "machine_id": "M49201",
+                        "machine_type": "M",
+                        "failure_prediction": "HDF",
+                        "failure_type": "HDF",
+                        "severity": "High",
+                        "maintenance_action": "Exhaust fan motor replacement",
+                        "assigned_to": "Michael Scott",
+                        "status": "Completed",
+                        "priority": "High",
+                        "created_at": "2026-08-04 11:10:00",
+                        "due_date": "2026-08-06",
+                        "completed_at": "2026-08-06 16:00:00",
+                        "ai_summary": "Heat dissipation issue resolved after fan motor replacement."
+                    },
+                    {
+                        "work_order_id": "WO-20260817-014",
+                        "machine_id": "L29381",
+                        "machine_type": "L",
+                        "failure_prediction": "OSF",
+                        "failure_type": "OSF",
+                        "severity": "High",
+                        "maintenance_action": "Hydraulic pressure valve recalibration",
+                        "assigned_to": "John Doe",
+                        "status": "Pending",
+                        "priority": "High",
+                        "created_at": "2026-08-16 14:00:00",
+                        "due_date": overdue_3,
+                        "completed_at": None,
+                        "ai_summary": "Overstrain failure predicted due to hydraulic pressure spike."
+                    },
+                    {
+                        "work_order_id": "WO-20260817-015",
+                        "machine_id": "H39201",
+                        "machine_type": "H",
+                        "failure_prediction": "RNF",
+                        "failure_type": "RNF",
+                        "severity": "Low",
+                        "maintenance_action": "Telemetry firmware update",
+                        "assigned_to": "Unassigned",
+                        "status": "Completed",
+                        "priority": "Low",
+                        "created_at": "2026-08-02 10:00:00",
+                        "due_date": "2026-08-05",
+                        "completed_at": "2026-08-04 12:30:00",
+                        "ai_summary": "Telemetry noise resolved following firmware patch."
+                    },
+                    {
+                        "work_order_id": "WO-20260817-016",
+                        "machine_id": "M59201",
+                        "machine_type": "M",
+                        "failure_prediction": "PWF",
+                        "failure_type": "PWF",
+                        "severity": "High",
+                        "maintenance_action": "Capacitor bank inspection",
+                        "assigned_to": "Sarah Connor",
+                        "status": "Pending",
+                        "priority": "High",
+                        "created_at": "2026-08-13 16:50:00",
+                        "due_date": overdue_1,
+                        "completed_at": None,
+                        "ai_summary": "Power supply fluctuation observed in primary phase line."
+                    },
+                    {
+                        "work_order_id": "WO-20260817-017",
+                        "machine_id": "L68291",
+                        "machine_type": "L",
+                        "failure_prediction": "None",
+                        "failure_type": "None",
+                        "severity": "Low",
+                        "maintenance_action": "Oil change & filter cleaning",
+                        "assigned_to": "David Smith",
+                        "status": "Completed",
+                        "priority": "Low",
+                        "created_at": "2026-08-03 08:30:00",
+                        "due_date": "2026-08-05",
+                        "completed_at": "2026-08-05 10:15:00",
+                        "ai_summary": "Scheduled oil change executed. Machine performing normally."
+                    },
+                    {
+                        "work_order_id": "WO-20260817-018",
+                        "machine_id": "H20491",
+                        "machine_type": "H",
+                        "failure_prediction": "TWF",
+                        "failure_type": "TWF",
+                        "severity": "Medium",
+                        "maintenance_action": "Drill bit sharpener replacement",
+                        "assigned_to": "Michael Scott",
+                        "status": "Completed",
+                        "priority": "Medium",
+                        "created_at": "2026-08-07 13:15:00",
+                        "due_date": "2026-08-09",
+                        "completed_at": "2026-08-09 14:00:00",
+                        "ai_summary": "Tool wear failure mitigated with sharpener head replacement."
+                    },
+                    {
+                        "work_order_id": "WO-20260817-019",
+                        "machine_id": "M69201",
+                        "machine_type": "M",
+                        "failure_prediction": "HDF",
+                        "failure_type": "HDF",
+                        "severity": "Critical",
+                        "maintenance_action": "Emergency coolant pump repair",
+                        "assigned_to": "John Doe",
+                        "status": "Pending",
+                        "priority": "Critical",
+                        "created_at": "2026-08-16 11:00:00",
+                        "due_date": due_in_2,
+                        "completed_at": None,
+                        "ai_summary": "Overheating warning. Coolant flow rate below critical threshold."
+                    },
+                    {
+                        "work_order_id": "WO-20260817-020",
+                        "machine_id": "L78291",
+                        "machine_type": "L",
+                        "failure_prediction": "OSF",
+                        "failure_type": "OSF",
+                        "severity": "High",
+                        "maintenance_action": "Gearbox tensioning & belt replacement",
+                        "assigned_to": "Sarah Connor",
+                        "status": "Completed",
+                        "priority": "High",
+                        "created_at": "2026-08-08 09:45:00",
+                        "due_date": "2026-08-11",
+                        "completed_at": "2026-08-11 15:30:00",
+                        "ai_summary": "Overstrain wear corrected with new drive belt installation."
+                    }
+                ]
+                for s in demo_samples:
+                    cursor.execute("""
+                        INSERT INTO work_orders_demo (
+                            work_order_id, machine_id, machine_type, failure_prediction, failure_type,
+                            severity, maintenance_action, assigned_to, status,
+                            priority, created_at, due_date, completed_at, ai_summary
+                        ) VALUES (
+                            :work_order_id, :machine_id, :machine_type, :failure_prediction, :failure_type,
+                            :severity, :maintenance_action, :assigned_to, :status,
+                            :priority, :created_at, :due_date, :completed_at, :ai_summary
+                        );
+                    """, s)
+                conn.commit()
+    except Exception as e:
+        print(f"Error initializing demo database: {e}")
+
+
+def insert_work_order(data: Dict[str, Any], use_demo: bool = True) -> bool:
     """
     Inserts a new work order record into the database.
     Prevents duplicate work_order_id and handles SQLite exceptions safely.
@@ -200,9 +585,10 @@ def insert_work_order(data: Dict[str, Any]) -> bool:
     f_pred = data.get("failure_prediction") or data.get("failure_type") or "None"
     data["failure_prediction"] = f_pred
     data["failure_type"] = f_pred
+    tbl_name = "work_orders_demo" if use_demo else "work_orders"
 
-    query = """
-        INSERT INTO work_orders (
+    query = f"""
+        INSERT INTO {tbl_name} (
             work_order_id, machine_id, machine_type, failure_prediction, failure_type,
             severity, maintenance_action, assigned_to, status,
             priority, created_at, due_date, completed_at, ai_summary
@@ -226,24 +612,25 @@ def insert_work_order(data: Dict[str, Any]) -> bool:
         return False
 
 
-def has_open_work_order(machine_id: str, failure_prediction: Optional[str] = None) -> bool:
+def has_open_work_order(machine_id: str, failure_prediction: Optional[str] = None, use_demo: bool = True) -> bool:
     """
     Checks if an open work order ('Pending' or 'In Progress') already exists for the given machine_id.
     Prevents duplicate automatic creation.
     """
+    tbl_name = "work_orders_demo" if use_demo else "work_orders"
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
             if failure_prediction and failure_prediction != "None":
-                cursor.execute("""
-                    SELECT COUNT(*) FROM work_orders 
+                cursor.execute(f"""
+                    SELECT COUNT(*) FROM {tbl_name} 
                     WHERE machine_id = ? 
                     AND status IN ('Pending', 'In Progress')
                     AND (failure_prediction = ? OR failure_type = ?)
                 """, (machine_id, failure_prediction, failure_prediction))
             else:
-                cursor.execute("""
-                    SELECT COUNT(*) FROM work_orders 
+                cursor.execute(f"""
+                    SELECT COUNT(*) FROM {tbl_name} 
                     WHERE machine_id = ? 
                     AND status IN ('Pending', 'In Progress')
                 """, (machine_id,))
@@ -261,13 +648,15 @@ def fetch_all_work_orders(
     type_filter: str = "All",
     search_query: str = "",
     start_date: Optional[str] = None,
-    end_date: Optional[str] = None
+    end_date: Optional[str] = None,
+    use_demo: bool = True
 ) -> pd.DataFrame:
     """
     Fetches work orders from SQLite into a Pandas DataFrame based on filter criteria.
     Supports multi-column search, multi-filter combinations, and date range filters.
     """
-    query = "SELECT * FROM work_orders WHERE 1=1"
+    tbl_name = "work_orders_demo" if use_demo else "work_orders"
+    query = f"SELECT * FROM {tbl_name} WHERE 1=1"
     params = []
 
     if status_filter and status_filter != "All":
@@ -337,12 +726,14 @@ def fetch_work_orders_paginated(
     sort_column: str = "created_at",
     sort_order: str = "Descending",
     page: int = 1,
-    page_size: int = 10
+    page_size: int = 10,
+    use_demo: bool = True
 ) -> Tuple[pd.DataFrame, int]:
     """
     Fetches a single page of work orders directly from SQLite using SQL filtering,
     SQL sorting, and SQL LIMIT/OFFSET pagination. Returns (df_page, total_count).
     """
+    tbl_name = "work_orders_demo" if use_demo else "work_orders"
     where_clauses = ["1=1"]
     params = []
 
@@ -405,10 +796,10 @@ def fetch_work_orders_paginated(
     col_sql = valid_cols.get(sort_column, "created_at")
     dir_sql = "DESC" if sort_order in ["Descending", "DESC", "desc"] else "ASC"
 
-    count_query = f"SELECT COUNT(*) FROM work_orders WHERE {where_sql}"
+    count_query = f"SELECT COUNT(*) FROM {tbl_name} WHERE {where_sql}"
 
     offset = (max(1, page) - 1) * page_size
-    data_query = f"SELECT * FROM work_orders WHERE {where_sql} ORDER BY {col_sql} {dir_sql} LIMIT ? OFFSET ?"
+    data_query = f"SELECT * FROM {tbl_name} WHERE {where_sql} ORDER BY {col_sql} {dir_sql} LIMIT ? OFFSET ?"
     data_params = list(params) + [page_size, offset]
 
     try:
@@ -429,11 +820,12 @@ def fetch_work_orders_paginated(
         return pd.DataFrame(), 0
 
 
-def fetch_work_order_ids(status_filter: str = "All") -> list:
+def fetch_work_order_ids(status_filter: str = "All", use_demo: bool = True) -> list:
     """
     Fetches lightweight list of Work Order IDs for dropdown selection without loading complete DataFrames.
     """
-    query = "SELECT work_order_id FROM work_orders"
+    tbl_name = "work_orders_demo" if use_demo else "work_orders"
+    query = f"SELECT work_order_id FROM {tbl_name}"
     params = []
     if status_filter and status_filter != "All":
         if status_filter == "Open":
@@ -460,11 +852,13 @@ def update_work_order(
     status: str,
     priority: str,
     due_date: str,
-    maintenance_action: Optional[str] = None
+    maintenance_action: Optional[str] = None,
+    use_demo: bool = True
 ) -> bool:
     """
     Updates existing work order details. If status changes to 'Completed', automatically sets completed_at.
     """
+    tbl_name = "work_orders_demo" if use_demo else "work_orders"
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     if status == "Completed":
@@ -474,7 +868,7 @@ def update_work_order(
 
     if maintenance_action:
         query = f"""
-            UPDATE work_orders
+            UPDATE {tbl_name}
             SET assigned_to = ?,
                 status = ?,
                 priority = ?,
@@ -486,7 +880,7 @@ def update_work_order(
         params = [assigned_to, status, priority, due_date, maintenance_action]
     else:
         query = f"""
-            UPDATE work_orders
+            UPDATE {tbl_name}
             SET assigned_to = ?,
                 status = ?,
                 priority = ?,
@@ -511,14 +905,15 @@ def update_work_order(
         return False
 
 
-def delete_work_order(work_order_id: str) -> bool:
+def delete_work_order(work_order_id: str, use_demo: bool = True) -> bool:
     """
     Deletes a work order record from the SQLite database.
     """
+    tbl_name = "work_orders_demo" if use_demo else "work_orders"
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM work_orders WHERE work_order_id = ?", (work_order_id,))
+            cursor.execute(f"DELETE FROM {tbl_name} WHERE work_order_id = ?", (work_order_id,))
             conn.commit()
             return cursor.rowcount > 0
     except Exception as e:
@@ -526,12 +921,13 @@ def delete_work_order(work_order_id: str) -> bool:
         return False
 
 
-def fetch_work_order_stats() -> Dict[str, Any]:
+def fetch_work_order_stats(use_demo: bool = True) -> Dict[str, Any]:
     """
     Calculates summary KPI statistics for Work Orders efficiently using a single aggregated SQL query.
     """
+    tbl_name = "work_orders_demo" if use_demo else "work_orders"
     today_str = datetime.now().strftime("%Y-%m-%d")
-    query = """
+    query = f"""
         SELECT 
             COUNT(*) as total,
             SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending,
@@ -542,7 +938,7 @@ def fetch_work_order_stats() -> Dict[str, Any]:
             SUM(CASE WHEN (priority = 'Critical' OR priority = 'High' OR severity = 'Critical') THEN 1 ELSE 0 END) as legacy_critical,
             SUM(CASE WHEN status != 'Completed' AND date(substr(due_date, 1, 10)) = date(?) THEN 1 ELSE 0 END) as due_today,
             SUM(CASE WHEN status != 'Completed' AND date(substr(due_date, 1, 10)) < date(?) THEN 1 ELSE 0 END) as overdue
-        FROM work_orders
+        FROM {tbl_name}
     """
     try:
         with get_db_connection() as conn:
@@ -562,7 +958,7 @@ def fetch_work_order_stats() -> Dict[str, Any]:
             overdue = row["overdue"] or 0
 
             # Calculate average resolution time
-            cursor.execute("SELECT created_at, completed_at FROM work_orders WHERE status = 'Completed' AND completed_at IS NOT NULL")
+            cursor.execute(f"SELECT created_at, completed_at FROM {tbl_name} WHERE status = 'Completed' AND completed_at IS NOT NULL")
             completed_rows = cursor.fetchall()
             
             total_hours = 0.0

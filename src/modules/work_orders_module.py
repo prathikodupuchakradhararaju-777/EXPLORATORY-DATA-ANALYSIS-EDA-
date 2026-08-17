@@ -150,28 +150,23 @@ def render_work_orders_page():
     st.divider()
 
     # -------------------------------------------------------------
-    # 2. Sidebar Filters & SQL Search
+    # 2. Search & Filter Parameters (Left Sidebar UI Removed)
     # -------------------------------------------------------------
-    st.sidebar.header("📋 Work Order Filters")
-    filter_status = st.sidebar.selectbox("Status Filter", ["All", "Open", "Pending", "In Progress", "Completed", "Cancelled"], key="wo_filter_status_selectbox")
-    filter_priority = st.sidebar.selectbox("Priority Filter", ["All", "Low", "Medium", "High", "Critical"], key="wo_filter_priority_selectbox")
-    filter_severity = st.sidebar.selectbox("Severity Filter", ["All", "Low", "Medium", "High", "Critical"], key="wo_filter_severity_selectbox")
-    filter_machine_type = st.sidebar.selectbox("Machine Type Filter", ["All", "L", "M", "H"], key="wo_filter_machine_type_selectbox")
-
-    use_date_range = st.sidebar.checkbox("Enable Date Range Filter", value=False, key="wo_use_date_range_checkbox")
+    filter_status = "All"
+    filter_priority = "All"
+    filter_severity = "All"
+    filter_machine_type = "All"
     start_date_val = None
     end_date_val = None
-    if use_date_range:
-        d_col1, d_col2 = st.sidebar.columns(2)
-        start_date_input = d_col1.date_input("Start Date", value=datetime.now().date() - pd.Timedelta(days=30), key="wo_start_date_input")
-        end_date_input = d_col2.date_input("End Date", value=datetime.now().date() + pd.Timedelta(days=7), key="wo_end_date_input")
-        start_date_val = start_date_input.strftime("%Y-%m-%d")
-        end_date_val = end_date_input.strftime("%Y-%m-%d")
 
     st.subheader("🔍 Instant Work Order Search")
-    search_query = st.text_input(
+    wo_ids_list = fetch_work_order_ids()
+    search_options = [""] + wo_ids_list
+    search_query = st.selectbox(
         "Search Work Orders",
-        placeholder="Type Work Order ID, Machine ID, Type, Failure Prediction, or Assigned Technician...",
+        options=search_options,
+        index=0,
+        format_func=lambda x: "🔍 Search or select a Work Order..." if x == "" else x,
         key="instant_wo_search_mod"
     )
 
@@ -182,7 +177,7 @@ def render_work_orders_page():
 
     pg_col1, pg_col2, pg_col3 = st.columns([2, 2, 2])
     with pg_col1:
-        rows_per_page = st.selectbox("Rows per Page", [5, 10, 20, 50, 100], index=1, key="wo_rows_per_page_mod")
+        rows_per_page = st.selectbox("Rows per Page", [10, 20, 50, 100], index=0, key="wo_rows_per_page_mod")
 
     sort_options = {
         "Created Date": "created_at",
@@ -245,40 +240,32 @@ def render_work_orders_page():
 
     if not display_df.empty:
         all_columns = list(display_df.columns)
-        default_cols = [c for c in [
+        selected_columns = [c for c in [
             'work_order_id', 'machine_id', 'machine_type', 'failure_prediction',
             'severity', 'priority', 'status', 'assigned_to', 'maintenance_action',
             'created_at', 'due_date'
         ] if c in all_columns]
+        if not selected_columns:
+            selected_columns = all_columns
 
-        selected_columns = st.multiselect(
-            "📌 Column Selection",
-            options=all_columns,
-            default=default_cols,
-            key="wo_selected_columns_multiselect"
+        st.dataframe(
+            display_df[selected_columns],
+            column_config={
+                "work_order_id": st.column_config.TextColumn("Work Order ID", width="medium"),
+                "machine_id": st.column_config.TextColumn("Machine ID", width="small"),
+                "machine_type": st.column_config.TextColumn("Type", width="small"),
+                "failure_prediction": st.column_config.TextColumn("Failure Mode", width="medium"),
+                "severity": st.column_config.TextColumn("Severity", width="small"),
+                "priority": st.column_config.TextColumn("Priority", width="small"),
+                "status": st.column_config.TextColumn("Status", width="medium"),
+                "assigned_to": st.column_config.TextColumn("Technician", width="medium"),
+                "maintenance_action": st.column_config.TextColumn("Maintenance Action", width="large"),
+                "created_at": st.column_config.TextColumn("Created At", width="medium"),
+                "due_date": st.column_config.TextColumn("Due Date", width="medium")
+            },
+            use_container_width=True,
+            hide_index=True
         )
-
-        if selected_columns:
-            st.dataframe(
-                display_df[selected_columns],
-                column_config={
-                    "work_order_id": st.column_config.TextColumn("Work Order ID", width="medium"),
-                    "machine_id": st.column_config.TextColumn("Machine ID", width="small"),
-                    "machine_type": st.column_config.TextColumn("Type", width="small"),
-                    "failure_prediction": st.column_config.TextColumn("Failure Mode", width="medium"),
-                    "severity": st.column_config.TextColumn("Severity", width="small"),
-                    "priority": st.column_config.TextColumn("Priority", width="small"),
-                    "status": st.column_config.TextColumn("Status", width="medium"),
-                    "assigned_to": st.column_config.TextColumn("Technician", width="medium"),
-                    "maintenance_action": st.column_config.TextColumn("Maintenance Action", width="large"),
-                    "created_at": st.column_config.TextColumn("Created At", width="medium"),
-                    "due_date": st.column_config.TextColumn("Due Date", width="medium")
-                },
-                use_container_width=True,
-                hide_index=True
-            )
-        else:
-            st.warning("Please select at least one column to display.")
     else:
         st.info("No work orders found matching the filter criteria.")
 
@@ -437,7 +424,7 @@ def render_work_orders_page():
                 try:
                     with get_db_connection() as conn:
                         cursor = conn.cursor()
-                        cursor.execute("SELECT * FROM work_orders WHERE work_order_id = ?", (selected_wo_id,))
+                        cursor.execute("SELECT * FROM work_orders_demo WHERE work_order_id = ?", (selected_wo_id,))
                         r = cursor.fetchone()
                         if r:
                             row_edit = dict(r)
@@ -506,7 +493,7 @@ def render_work_orders_page():
             try:
                 with get_db_connection() as conn:
                     cursor = conn.cursor()
-                    cursor.execute("SELECT * FROM work_orders WHERE work_order_id = ?", (del_wo_id,))
+                    cursor.execute("SELECT * FROM work_orders_demo WHERE work_order_id = ?", (del_wo_id,))
                     r = cursor.fetchone()
                     if r:
                         del_row = dict(r)
